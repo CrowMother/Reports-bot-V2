@@ -8,7 +8,7 @@ from Bot_App import gsheet, util, schwab, data, SQL
 
 
 FILTER = "FILLED"
-TIME_DELTA=12
+TIME_DELTA=72
 
 def main():
     SQL.initialize_db()
@@ -35,14 +35,20 @@ def main():
     # get Schwab data
     response = client.get_account_positions(FILTER, TIME_DELTA)
     print("Schwab data retrieved")
-    # store and process Schwab data
+
+    # store and process Schwab data (if needed for DB tracking)
     data.store_orders(response)
-    unposted_orders = data.get_unposted_orders()
-    # update gsheet with Schwab data
-    for order in response:
-        row_data = gsheet.format_data(order)
-        gsheet.write_row_at_next_empty_row(worksheet, row_data)
-        #data.mark_as_posted(order[0])
+
+    # pair only those with open AND close
+    paired_orders = gsheet.pair_orders(response)
+
+    # post each pair to the sheet
+    for pair in paired_orders:
+        row = gsheet.format_data(pair)  # format the row from the pair
+        gsheet.write_row_at_next_empty_row(worksheet, row)  # write to the sheet
+
+    # optional: mark as posted if storing in DB
+    # data.mark_as_posted(pair['open']['orderId'])  # or some unique id
 
     # jump to loop
 
